@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FPS</title>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div id="hud">
+      <div id="hurt"></div>
+      <div id="crosshair"></div>
+      <div id="hitmarker"></div>
+      <div id="stat-left">HP <span id="health">100</span></div>
+      <div id="stat-right">
+        <span id="ammo">30</span> / <span id="reserve">90</span>
+      </div>
+      <div id="stat-top">
+        Wave <span id="wave">0</span> &middot; Score <span id="score">0</span>
+      </div>
+      <div id="reload">RELOADING</div>
+    </div>
+
+    <div id="pause" class="overlay">
+      <div>
+        <h1>Click to play</h1>
+        <p>
+          WASD move &middot; Shift sprint &middot; Space jump<br />
+          Mouse aim &middot; Left click shoot &middot; R reload &middot; Esc
+          pause
+        </p>
+      </div>
+    </div>
+
+    <div id="gameover" class="overlay hidden">
+      <div>
+        <h1>Game Over</h1>
+        <p id="final"></p>
+        <p>Press R to restart, then click to resume</p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
