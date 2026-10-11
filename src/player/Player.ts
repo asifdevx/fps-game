@@ -6,6 +6,7 @@ const EYE_OFFSET = 0.65; // above capsule center (center is 0.8 above feet)
 const SENSITIVITY = 0.0022;
 const GRAVITY = 20;
 const JUMP_SPEED = 8;
+const BASE_FOV = 75;
 const SPAWN = { x: 0, y: 0.9, z: 8 };
 
 function moveToward(v: number, target: number, maxDelta: number): number {
@@ -18,9 +19,8 @@ export class Player {
   readonly collider: RAPIER.Collider;
   readonly maxHealth = 100;
   health = 100;
-  onHurt: () => void = () => {};
+  onStep: () => void = () => {};
 
-  private world: RAPIER.World;
   private camera: THREE.PerspectiveCamera;
   private input: Input;
   private controller: RAPIER.KinematicCharacterController;
@@ -32,12 +32,20 @@ export class Player {
   private prev = new THREE.Vector3();
   private curr = new THREE.Vector3();
 
+  private aimAmount = 0;
+  private sprinting = false;
+  private strafeInput = 0;
+  private shake = 0;
+  private bobPhase = 0;
+  private bobAmp = 0;
+  private lastStep = 0;
+  private roll = 0;
+
   constructor(
     world: RAPIER.World,
     camera: THREE.PerspectiveCamera,
     input: Input,
   ) {
-    this.world = world;
     this.camera = camera;
     this.input = input;
 
@@ -69,6 +77,10 @@ export class Player {
     return this.curr;
   }
 
+  get facing(): number {
+    return this.yaw;
+  }
+
   /** Writes the current aim direction into `out`. */
   getAim(out: THREE.Vector3): THREE.Vector3 {
     const cp = Math.cos(this.pitch);
@@ -79,15 +91,24 @@ export class Player {
     );
   }
 
+  /** 0..1 aim-down-sights amount (zooms FOV, slows look and movement). */
+  setAim(a: number): void {
+    this.aimAmount = a;
+  }
+
   addRecoil(pitch: number, yaw: number): void {
     this.pitch = Math.min(1.5, this.pitch + pitch);
     this.yaw += yaw;
   }
 
+  heal(amount: number): void {
+    this.health = Math.min(this.maxHealth, this.health + amount);
+  }
+
   damage(amount: number): void {
     if (this.health <= 0) return;
     this.health = Math.max(0, this.health - amount);
-    this.onHurt();
+    this.shake = Math.max(this.shake, Math.min(1, 0.4 + amount / 30));
   }
 
   reset(): void {
@@ -97,6 +118,9 @@ export class Player {
     this.vel.set(0, 0, 0);
     this.yaw = 0;
     this.pitch = 0;
+    this.shake = 0;
+    this.bobAmp = 0;
+    this.aimAmount = 0;
     this.curr.set(SPAWN.x, SPAWN.y + EYE_OFFSET, SPAWN.z);
     this.prev.copy(this.curr);
   }
@@ -104,16 +128,18 @@ export class Player {
   update(dt: number): void {
     this.prev.copy(this.curr);
 
-    // Look
+    // Look (slower while aiming)
+    const sens = SENSITIVITY * (1 - 0.55 * this.aimAmount);
     const d = this.input.consumeMouseDelta();
-    this.yaw -= d.x * SENSITIVITY;
-    this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch - d.y * SENSITIVITY));
+    this.yaw -= d.x * sens;
+    this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch - d.y * sens));
 
     // Horizontal movement
     const fwd =
       (this.input.isDown("KeyW") ? 1 : 0) - (this.input.isDown("KeyS") ? 1 : 0);
     const side =
       (this.input.isDown("KeyD") ? 1 : 0) - (this.input.isDown("KeyA") ? 1 : 0);
+    this.strafeInput = side;
     const sin = Math.sin(this.yaw);
     const cos = Math.cos(this.yaw);
     let wx = -sin * fwd + cos * side;
@@ -124,12 +150,16 @@ export class Player {
       wz /= len;
     }
 
-    const speed = this.input.isDown("ShiftLeft") ? 9 : 6;
+    this.sprinting =
+      this.input.isDown("ShiftLeft") && fwd > 0 && this.aimAmount < 0.3;
+    const speed = this.sprinting ? 9 : this.aimAmount > 0.5 ? 3.5 : 6;
     const accel = (this.grounded ? 60 : 15) * dt;
     this.vel.x = moveToward(this.vel.x, wx * speed, accel);
     this.vel.z = moveToward(this.vel.z, wz * speed, accel);
 
     // Vertical movement
+    const fallSpeed = this.vel.y;
+    const wasGrounded = this.grounded;
     if (this.grounded && this.vel.y <= 0) {
       this.vel.y = 0;
       if (this.input.wasPressed("Space")) this.vel.y = JUMP_SPEED;
@@ -147,16 +177,47 @@ export class Player {
     const m = this.controller.computedMovement();
     this.grounded = this.controller.computedGrounded();
     if (this.vel.y > 0 && m.y < desired.y - 0.001) this.vel.y = 0; // bonked ceiling
+    if (!wasGrounded && this.grounded && fallSpeed < -5)
+      this.shake = Math.max(this.shake, 0.3); // hard landing
 
     const t = this.body.translation();
     const next = { x: t.x + m.x, y: t.y + m.y, z: t.z + m.z };
     this.body.setNextKinematicTranslation(next);
     this.curr.set(next.x, next.y + EYE_OFFSET, next.z);
+
+    // Head bob, footsteps, shake decay
+    const hs = Math.hypot(this.vel.x, this.vel.z);
+    const bobTarget = this.grounded ? Math.min(hs / 6, 1.5) : 0;
+    this.bobAmp += (bobTarget - this.bobAmp) * Math.min(1, 10 * dt);
+    if (this.grounded) this.bobPhase += hs * dt * 2.2;
+    const step = Math.floor(this.bobPhase / Math.PI);
+    if (step !== this.lastStep) {
+      this.lastStep = step;
+      if (this.bobAmp > 0.3) this.onStep();
+    }
+    this.shake = Math.max(0, this.shake - dt * 2.5);
   }
 
   /** Call every render frame; alpha comes from the game loop. */
   applyCamera(alpha: number): void {
-    this.camera.position.lerpVectors(this.prev, this.curr, alpha);
-    this.camera.rotation.set(this.pitch, this.yaw, 0, "YXZ");
+    const cam = this.camera;
+    cam.position.lerpVectors(this.prev, this.curr, alpha);
+    cam.position.y -= Math.abs(Math.sin(this.bobPhase)) * 0.045 * this.bobAmp;
+
+    const targetRoll = -this.strafeInput * 0.02 * Math.min(this.bobAmp, 1);
+    this.roll += (targetRoll - this.roll) * 0.1;
+    const sh = this.shake;
+    cam.rotation.set(
+      this.pitch + (Math.random() - 0.5) * sh * 0.04,
+      this.yaw + (Math.random() - 0.5) * sh * 0.04,
+      this.roll + (Math.random() - 0.5) * sh * 0.03,
+      "YXZ",
+    );
+
+    const targetFov = BASE_FOV + (this.sprinting ? 7 : 0) - 30 * this.aimAmount;
+    if (Math.abs(cam.fov - targetFov) > 0.01) {
+      cam.fov += (targetFov - cam.fov) * 0.12;
+      cam.updateProjectionMatrix();
+    }
   }
 }

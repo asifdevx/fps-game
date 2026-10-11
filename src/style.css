@@ -22,6 +22,14 @@ canvas {
   inset: 0;
   pointer-events: none;
 }
+#radar {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 150px;
+  height: 150px;
+}
+
 #crosshair {
   position: absolute;
   top: 50%;
@@ -79,6 +87,31 @@ canvas {
   opacity: 1;
   transition: none;
 }
+#hurtdir {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 300px;
+  height: 300px;
+  margin: -150px;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+#hurtdir.show {
+  opacity: 1;
+  transition: none;
+}
+#hurtdir div {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  margin-left: -40px;
+  width: 80px;
+  height: 10px;
+  border-radius: 6px;
+  background: #ff3030;
+  box-shadow: 0 0 14px #f00;
+}
 
 #stat-left,
 #stat-right,
@@ -96,13 +129,136 @@ canvas {
   right: 24px;
   bottom: 24px;
   font-size: 32px;
+  text-align: right;
 }
 #stat-top {
   top: 16px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 20px;
+  text-align: center;
 }
+
+#hpbar {
+  width: 200px;
+  height: 8px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+#hpfill {
+  height: 100%;
+  width: 100%;
+  background: #4ade80;
+  transition:
+    width 0.15s,
+    background 0.15s;
+}
+#hpfill.low {
+  background: #ef4444;
+}
+
+#weapon-name {
+  font-size: 14px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+#slots {
+  font-size: 13px;
+  font-weight: 600;
+}
+#slots span {
+  margin-left: 10px;
+  opacity: 0.45;
+}
+#slots span.active {
+  opacity: 1;
+  color: #ffd040;
+}
+
+#combo {
+  margin-top: 6px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+#combo.show {
+  opacity: 1;
+}
+#combo-text {
+  font-size: 16px;
+  color: #ffd040;
+}
+#combo-bar {
+  width: 120px;
+  height: 4px;
+  margin: 4px auto 0;
+  background: rgba(255, 255, 255, 0.2);
+}
+#combo-fill {
+  height: 100%;
+  width: 100%;
+  background: #ffd040;
+}
+
+#banner {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  text-shadow: 0 3px 8px #000;
+  white-space: nowrap;
+  opacity: 0;
+}
+#banner.show {
+  animation: bannerpop 2.4s ease forwards;
+}
+@keyframes bannerpop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 10px) scale(0.9);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.dmg {
+  position: absolute;
+  font-weight: 700;
+  font-size: 20px;
+  text-shadow: 0 2px 4px #000;
+  transform: translate(-50%, -50%);
+  animation: dmgfloat 0.8s ease-out forwards;
+}
+.dmg.crit {
+  color: #ff5050;
+  font-size: 28px;
+}
+@keyframes dmgfloat {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -160%) scale(1);
+  }
+}
+
 #reload {
   position: absolute;
   top: 58%;

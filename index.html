@@ -10,15 +10,34 @@
 
     <div id="hud">
       <div id="hurt"></div>
+      <div id="hurtdir"><div></div></div>
       <div id="crosshair"></div>
       <div id="hitmarker"></div>
-      <div id="stat-left">HP <span id="health">100</span></div>
-      <div id="stat-right">
-        <span id="ammo">30</span> / <span id="reserve">90</span>
-      </div>
+      <canvas id="radar" width="150" height="150"></canvas>
+
       <div id="stat-top">
         Wave <span id="wave">0</span> &middot; Score <span id="score">0</span>
+        <div id="combo">
+          <div id="combo-text"></div>
+          <div id="combo-bar"><div id="combo-fill"></div></div>
+        </div>
       </div>
+
+      <div id="stat-left">
+        <div id="hpbar"><div id="hpfill"></div></div>
+        HP <span id="health">100</span>
+      </div>
+
+      <div id="stat-right">
+        <div id="weapon-name">Rifle</div>
+        <span id="ammo">30</span> / <span id="reserve">90</span>
+        <div id="slots">
+          <span class="active">1 Rifle</span><span>2 Pistol</span
+          ><span>3 Shotgun</span>
+        </div>
+      </div>
+
+      <div id="banner"></div>
       <div id="reload">RELOADING</div>
     </div>
 
@@ -27,8 +46,9 @@
         <h1>Click to play</h1>
         <p>
           WASD move &middot; Shift sprint &middot; Space jump<br />
-          Mouse aim &middot; Left click shoot &middot; R reload &middot; Esc
-          pause
+          Mouse aim &middot; Left click shoot &middot; Right click aim down
+          sights<br />
+          1 / 2 / 3 switch weapon &middot; R reload &middot; Esc pause
         </p>
       </div>
     </div>
@@ -37,6 +57,7 @@
       <div>
         <h1>Game Over</h1>
         <p id="final"></p>
+        <p id="best"></p>
         <p>Press R to restart, then click to resume</p>
       </div>
     </div>
