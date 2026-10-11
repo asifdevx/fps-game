@@ -1,12 +1,15 @@
 export class Input {
-  private readonly element: HTMLElement;
+  /** True on phones and tablets (primary pointer is a finger). */
+  readonly isTouch = window.matchMedia("(pointer: coarse)").matches;
 
+  private readonly element: HTMLElement;
   private down = new Set<string>();
   private pressed = new Set<string>();
   private buttons = new Set<number>();
   private buttonsPressed = new Set<number>();
   private mouseDX = 0;
   private mouseDY = 0;
+  private touchPlaying = false;
 
   constructor(element: HTMLElement) {
     this.element = element;
@@ -19,8 +22,21 @@ export class Input {
     element.addEventListener("click", this.lock);
   }
 
+  /** Desktop: pointer is locked. Touch: the player has tapped to start. */
   get isLocked(): boolean {
-    return document.pointerLockElement === this.element;
+    return this.isTouch
+      ? this.touchPlaying
+      : document.pointerLockElement === this.element;
+  }
+
+  /** Pause / stop capturing input (exits pointer lock, or ends touch play). */
+  release(): void {
+    if (this.isTouch) {
+      this.touchPlaying = false;
+      this.reset();
+    } else {
+      document.exitPointerLock();
+    }
   }
 
   /** Held down right now. Use KeyboardEvent.code, e.g. "KeyW", "Space". */
@@ -56,6 +72,30 @@ export class Input {
     this.buttonsPressed.clear();
   }
 
+  // --- Used by the touch UI to fake keyboard/mouse input ---
+  setKey(code: string, isDown: boolean): void {
+    if (isDown) {
+      if (!this.down.has(code)) this.pressed.add(code);
+      this.down.add(code);
+    } else {
+      this.down.delete(code);
+    }
+  }
+
+  setButton(button: number, isDown: boolean): void {
+    if (isDown) {
+      if (!this.buttons.has(button)) this.buttonsPressed.add(button);
+      this.buttons.add(button);
+    } else {
+      this.buttons.delete(button);
+    }
+  }
+
+  addLook(dx: number, dy: number): void {
+    this.mouseDX += dx;
+    this.mouseDY += dy;
+  }
+
   dispose(): void {
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);
@@ -67,6 +107,10 @@ export class Input {
   }
 
   private lock = (): void => {
+    if (this.isTouch) {
+      this.touchPlaying = true;
+      return;
+    }
     if (!this.isLocked) this.element.requestPointerLock();
   };
 
@@ -81,8 +125,7 @@ export class Input {
 
   private onKeyDown = (e: KeyboardEvent): void => {
     if (e.code === "Space") e.preventDefault();
-    if (!this.down.has(e.code)) this.pressed.add(e.code);
-    this.down.add(e.code);
+    this.setKey(e.code, true);
   };
 
   private onKeyUp = (e: KeyboardEvent): void => {
@@ -90,9 +133,8 @@ export class Input {
   };
 
   private onMouseDown = (e: MouseEvent): void => {
-    if (!this.isLocked) return;
-    this.buttons.add(e.button);
-    this.buttonsPressed.add(e.button);
+    if (this.isTouch || !this.isLocked) return; // ignore synthesized mouse events on touch
+    this.setButton(e.button, true);
   };
 
   private onMouseUp = (e: MouseEvent): void => {
@@ -100,7 +142,7 @@ export class Input {
   };
 
   private onMouseMove = (e: MouseEvent): void => {
-    if (!this.isLocked) return;
+    if (this.isTouch || !this.isLocked) return;
     this.mouseDX += e.movementX;
     this.mouseDY += e.movementY;
   };

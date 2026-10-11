@@ -10,9 +10,9 @@ import { Player } from "./player/Player";
 import { Weapon } from "./player/Weapon";
 import "./style.css";
 import { HUD } from "./ui/HUD";
+import { setupTouchControls } from "./ui/TouchControls";
 import { Level } from "./world/Level";
 import { Pickups, type PickupKind } from "./world/Pickups";
-
 const BEST_KEY = "fps-best-score";
 const loadBest = (): number => {
   try {
@@ -38,7 +38,12 @@ async function boot(): Promise<void> {
 
   const canvas = document.getElementById("game") as HTMLCanvasElement;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(
+    Math.min(
+      window.devicePixelRatio,
+      window.matchMedia("(pointer: coarse)").matches ? 1.5 : 2,
+    ),
+  );
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
 
@@ -52,6 +57,7 @@ async function boot(): Promise<void> {
   scene.add(camera); // needed so the weapon viewmodel (a camera child) renders
 
   const input = new Input(document.body);
+  setupTouchControls(input);
   const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
   new Level(scene, world);
 
@@ -186,7 +192,11 @@ async function boot(): Promise<void> {
   window.addEventListener("keydown", (e) => {
     if (e.code === "KeyR" && state === "over") restart();
   });
+  document.getElementById("gameover")!.addEventListener("click", () => {
+    if (state === "over") restart();
+  });
   window.addEventListener("pointerdown", () => sound.init()); // browsers require a gesture for audio
+  window.addEventListener("touchend", () => sound.init());
   window.addEventListener("contextmenu", (e) => e.preventDefault()); // right click = aim
   window.addEventListener("resize", () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -225,7 +235,7 @@ async function boot(): Promise<void> {
 
       if (player.health <= 0) {
         state = "over";
-        document.exitPointerLock();
+        input.release();
         sound.gameOver();
         const isNew = score > best;
         if (isNew) {
